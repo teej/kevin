@@ -210,13 +210,28 @@ File Contents:
 Command Results:
 {command_results}
 
-Create a unified diff patch that implements the requested changes. The patch should:
-1. Be in proper unified diff format with --- and +++ markers
-2. Include only the necessary changes to fix the issue
-3. Be minimal and focused
-4. Include proper context lines
+Create a unified diff patch that implements the requested changes. The patch MUST:
+1. Start with "diff --git a/path b/path" (git-style) OR "--- a/path" and "+++ b/path" (unified)
+2. Use repo-relative paths only (no absolute paths)
+3. Have LF line endings (no CRLF)
+4. Include sufficient context lines for reliable application
+5. Be minimal and focused on the specific changes needed
 
-Respond with ONLY the unified diff patch, no other text or explanation."""
+CRITICAL: Output ONLY the patch content. No markdown fences, no prose, no explanations.
+The patch must be immediately applicable with git apply.
+
+Example format:
+diff --git a/src/file.py b/src/file.py
+index 1234567..abcdefg 100644
+--- a/src/file.py
++++ b/src/file.py
+@@ -10,7 +10,7 @@ def function():
+     existing_code()
+ 
+-    old_code()
++    new_code()
+     more_code()
+"""
 
 
 REFLECT_PROMPT = """You are an AI engineer reflecting on a failed attempt to complete a task. Analyze what went wrong and determine the next steps.
@@ -240,7 +255,7 @@ Respond with a JSON object in this exact format:
     "next_action": "specific action to take next",
     "lessons_learned": "what you learned from the failure",
     "should_retry": true,
-    "recovery_strategy": "regenerate_patch|direct_edit|incremental_patches|reread_files|null"
+    "recovery_strategy": "regenerate_patch|direct_edit|incremental_patches|reread_files|file_edits|null"
 }}
 
 Recovery strategies for patch failures:
@@ -248,6 +263,7 @@ Recovery strategies for patch failures:
 - "direct_edit": Patch format is malformed or too complex - switch to direct file editing
 - "incremental_patches": Change is too complex - break into smaller, targeted patches
 - "reread_files": Files may have changed - re-read current file state and regenerate
+- "file_edits": Switch to JSON file edits format for maximum reliability
 - null: Not a patch failure or no specific strategy needed"""
 
 
@@ -272,6 +288,8 @@ Common patch failure causes and solutions:
    → Solution: "incremental_patches" - break into smaller, focused patches
 5. File path issues: Incorrect file paths in the patch
    → Solution: "regenerate_patch" - fix file paths and regenerate
+6. Persistent patch failures: Multiple strategies have failed
+   → Solution: "file_edits" - switch to JSON file edits format for maximum reliability
 
 Analyze the specific error and determine the best recovery strategy.
 
@@ -280,5 +298,5 @@ Respond with a JSON object in this exact format:
     "next_action": "specific recovery action to take",
     "lessons_learned": "what caused the patch failure",
     "should_retry": true,
-    "recovery_strategy": "regenerate_patch|direct_edit|incremental_patches|reread_files"
+    "recovery_strategy": "regenerate_patch|direct_edit|incremental_patches|reread_files|file_edits"
 }}"""

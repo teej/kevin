@@ -246,24 +246,24 @@ class LoopExecutor:
                 )
             else:
                 # Enhanced error information for reflection
-                patch_preview = (
-                    patch.unified_diff[:500] + "..."
-                    if len(patch.unified_diff) > 500
-                    else patch.unified_diff
-                )
+                first_20_lines = "\n".join(patch.unified_diff.split("\n")[:20])
+                stderr_tail = result.stderr[-2000:] if len(result.stderr) > 2000 else result.stderr
+
                 error_details = {
-                    "patch_preview": patch_preview,
-                    "stderr": result.stderr,
+                    "git_stderr": stderr_tail,
+                    "git_exit_code": result.returncode,
+                    "patch_first_20_lines": first_20_lines,
+                    "patch_total_length": len(patch.unified_diff),
                     "stdout": result.stdout,
-                    "returncode": result.returncode,
                 }
 
                 # Create detailed error message for reflection
-                detailed_error = (
-                    f"Patch application failed (rc={result.returncode}): {result.stderr}"
-                )
+                detailed_error = "PATCH APPLICATION FAILED\n"
+                detailed_error += f"Git exit code: {result.returncode}\n"
+                detailed_error += f"Git stderr (last 2000 chars): {stderr_tail}\n"
+                detailed_error += f"Patch preview (first 20 lines):\n{first_20_lines}\n"
                 if result.stdout:
-                    detailed_error += f"\nStdout: {result.stdout}"
+                    detailed_error += f"Git stdout: {result.stdout}\n"
 
                 return StepResult(
                     step_type=StepType.APPLY,
@@ -305,17 +305,16 @@ class LoopExecutor:
     def _execute_reflect_step(self) -> StepResult:
         """Execute the reflect step with enhanced patch failure handling."""
         try:
-            # Check if the last failed step was a patch application failure
-            last_failed_step = self.loop_state.get_last_failed_step()
-            is_patch_failure = (
-                last_failed_step
-                and last_failed_step.step_type == StepType.APPLY
-                and last_failed_step.status == StepStatus.FAILED
-            )
+            # Check if there was a patch application failure in this iteration
+            apply_failure = None
+            for result in reversed(self.loop_state.step_results):
+                if result.step_type == StepType.APPLY and result.status == StepStatus.FAILED:
+                    apply_failure = result
+                    break
 
-            if is_patch_failure:
+            if apply_failure:
                 # Use patch failure specific reflection
-                error_details = last_failed_step.output or last_failed_step.error
+                error_details = apply_failure.output or apply_failure.error
                 patch_preview = (
                     self.loop_state.current_patch.unified_diff[:200]
                     if self.loop_state.current_patch

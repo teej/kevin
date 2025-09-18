@@ -13,6 +13,7 @@ class RecoveryStrategy(str, Enum):
     DIRECT_EDIT = "direct_edit"
     INCREMENTAL_PATCHES = "incremental_patches"
     REREAD_FILES = "reread_files"
+    FILE_EDITS = "file_edits"
 
 
 class Plan(BaseModel):
@@ -35,6 +36,14 @@ class Plan(BaseModel):
         return v
 
 
+class FileEdit(BaseModel):
+    """A single file edit operation."""
+
+    path: str = Field(description="File path relative to repo root")
+    mode: str = Field(description="Edit mode: 'replace', 'create', 'delete'")
+    content: str = Field(default="", description="New file content (for replace/create)")
+
+
 class Patch(BaseModel):
     """Unified diff patch proposed by the model."""
 
@@ -53,6 +62,18 @@ class Patch(BaseModel):
         if not any(line.startswith("+++") for line in lines):
             raise ValueError("Patch must contain '+++' markers for unified diff format")
 
+        return v
+
+
+class FileEdits(BaseModel):
+    """Alternative to patches: direct file edits."""
+
+    edits: list[FileEdit] = Field(description="List of file edits to apply")
+
+    @validator("edits")
+    def validate_edits(cls, v):
+        if not v:
+            raise ValueError("Must specify at least one file edit")
         return v
 
 
